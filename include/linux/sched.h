@@ -38,6 +38,10 @@
 #define SCHED_BATCH		3
 /* SCHED_ISO: reserved but not implemented yet */
 #define SCHED_IDLE		5
+
+#ifdef CONFIG_SCHED_CASIO_POLICY
+#define SCHED_CASIO		6
+#endif
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
 #define SCHED_RESET_ON_FORK     0x40000000
 
@@ -45,6 +49,11 @@
 
 struct sched_param {
 	int sched_priority;
+
+#ifdef	CONFIG_SCHED_CASIO_POLICY
+	unsigned int	casio_id;
+	unsigned long long deadline;
+#endif
 };
 
 #include <asm/param.h>	/* for HZ */
@@ -1222,6 +1231,11 @@ struct sched_rt_entity {
 struct rcu_node;
 
 struct task_struct {
+
+#ifdef CONFIG_SCHED_CASIO_POLICY
+	unsigned int casio_id;
+	unsigned long long deadline;
+#endif
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
@@ -2616,5 +2630,33 @@ static inline unsigned long rlimit_max(unsigned int limit)
 }
 
 #endif /* __KERNEL__ */
+
+
+#ifdef	CONFIG_SCHED_CASIO_POLICY
+
+#define CASIO_MSG_SIZE		400
+#define CASIO_MAX_EVENT_LINES	10000
+
+#define CASIO_ENQUEUE		1
+#define CASIO_DEQUEUE		2
+#define	CASIO_CONTEXT_SWITCH	3
+#define	CASIO_MSG		4
+
+struct casio_event{
+	int action;
+	unsigned long long timestamp;
+	char msg[CASIO_MSG_SIZE];
+};
+
+struct casio_event_log{
+	struct casio_event casio_event[CASIO_MAX_EVENT_LINES];
+	unsigned long lines;
+	unsigned long cursor;
+};
+void init_casio_event_log();
+struct casio_event_log * get_casio_event_log();
+void register_casio_event(unsigned long long t, char *m, int a);
+
+#endif
 
 #endif
