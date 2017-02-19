@@ -38,6 +38,10 @@
 #define SCHED_BATCH		3
 /* SCHED_ISO: reserved but not implemented yet */
 #define SCHED_IDLE		5
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+#define SCHED_LOTTERY		6
+#endif
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
 #define SCHED_RESET_ON_FORK     0x40000000
 
@@ -45,6 +49,11 @@
 
 struct sched_param {
 	int sched_priority;
+
+#ifdef	CONFIG_SCHED_LOTTERY_POLICY
+	unsigned int    lottery_id;
+	unsigned long long tickets;
+#endif
 };
 
 #include <asm/param.h>	/* for HZ */
@@ -1222,6 +1231,11 @@ struct sched_rt_entity {
 struct rcu_node;
 
 struct task_struct {
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	unsigned int    lottery_id;
+	unsigned long long tickets;
+#endif
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
@@ -2616,5 +2630,33 @@ static inline unsigned long rlimit_max(unsigned int limit)
 }
 
 #endif /* __KERNEL__ */
+
+
+#ifdef	CONFIG_SCHED_LOTTERY_POLICY
+
+#define LOTTERY_MSG_SIZE		400
+#define LOTTERY_MAX_EVENT_LINES	10000
+
+#define LOTTERY_ENQUEUE		1
+#define LOTTERY_DEQUEUE		2
+#define	LOTTERY_CONTEXT_SWITCH	3
+#define	LOTTERY_MSG		4
+
+struct lottery_event{
+	int action;
+	unsigned long long timestamp;
+	char msg[LOTTERY_MSG_SIZE];
+};
+
+struct lottery_event_log{
+	struct lottery_event lottery_event[LOTTERY_MAX_EVENT_LINES];
+	unsigned long lines;
+	unsigned long cursor;
+};
+void init_lottery_event_log();
+struct lottery_event_log * get_lottery_event_log();
+void register_lottery_event(unsigned long long t, char *m, int a);
+
+#endif
 
 #endif
