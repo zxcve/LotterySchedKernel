@@ -57,7 +57,7 @@ void add_lottery_task_2_list(struct lottery_rq *rq, struct task_struct *p)
 		if(new){
 			lottery_task=NULL;
 			new->task=p;
-			new->tickets=0;
+			new->tickets=p->tickets;
 			list_for_each(ptr,&rq->lottery_list_head){
 				lottery_task=list_entry(ptr,struct lottery_task, lottery_list_node);
 				if(lottery_task){
