@@ -1228,14 +1228,20 @@ struct sched_rt_entity {
 #endif
 };
 
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+struct sched_lottery_entity {
+	struct list_head lottery_runnable_node;
+	unsigned long long tickets;
+	unsigned int lottery_id;
+	struct task_struct *task;
+};
+#endif
+
 struct rcu_node;
 
 struct task_struct {
 
-#ifdef CONFIG_SCHED_LOTTERY_POLICY
-	unsigned int    lottery_id;
-	unsigned long long tickets;
-#endif
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
@@ -1255,6 +1261,9 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	struct sched_lottery_entity lt;
+#endif
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	/* list of struct preempt_notifier: */

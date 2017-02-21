@@ -1127,6 +1127,12 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	p->blocked_on = NULL; /* not blocked yet */
 #endif
 
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	p->lt.task = p;
+	p->lt.tickets = 0;
+	p->lt.lottery_id = 0;
+#endif
+
 	p->bts = NULL;
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */

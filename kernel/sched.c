@@ -521,15 +521,8 @@ static struct root_domain def_root_domain;
 #endif
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-struct lottery_task {
-	struct list_head lottery_runnable_node;
-	unsigned long long tickets;
-	struct list_head lottery_list_node;
-	struct task_struct *task;
-};
 struct lottery_rq {
 	struct list_head lottery_runnable_head;
-	struct list_head lottery_list_head;
 	atomic_t nr_running;
 };
 #endif
@@ -542,9 +535,6 @@ struct lottery_rq {
  * acquire operations must be ordered by ascending &runqueue.
  */
 struct rq {
-#ifdef CONFIG_SCHED_LOTTERY_POLICY
-	struct lottery_rq lottery_rq;
-#endif
 	/* runqueue lock: */
 	spinlock_t lock;
 
@@ -566,6 +556,9 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	struct lottery_rq lottery_rq;
+#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -5633,13 +5626,13 @@ need_resched_nonpreemptible:
 #ifdef  CONFIG_SCHED_LOTTERY_POLICY
         if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
                 if(prev->policy==SCHED_LOTTERY && next->policy==SCHED_LOTTERY){
-                        snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(%d:%d)",prev->lottery_id,prev->pid,next->lottery_id,next->pid); 
+                        snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(%d:%d)",prev->lt.lottery_id,prev->pid,next->lt.lottery_id,next->pid); 
                 }
                 else{
                         if(prev->policy==SCHED_LOTTERY){
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(-1:%d)",prev->lottery_id,prev->pid,next->pid); 
+                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(-1:%d)",prev->lt.lottery_id,prev->pid,next->pid); 
                         }else{
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(-1:%d),next->(%d:%d)",prev->pid,next->lottery_id,next->pid); 
+                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(-1:%d),next->(%d:%d)",prev->pid,next->lt.lottery_id,next->pid); 
                         }
                 }
                 register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
@@ -6494,8 +6487,8 @@ recheck:
 	}
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	if(policy==SCHED_LOTTERY){
-		p->tickets = param->tickets;
-		p->lottery_id = param->lottery_id;
+		p->lt.tickets = param->tickets;
+		p->lt.lottery_id = param->lottery_id;
 	}
 #endif
 	if (user) {
@@ -6543,12 +6536,6 @@ recheck:
 
 	oldprio = p->prio;
 	prev_class = p->sched_class;
-
-#ifdef CONFIG_SCHED_LOTTERY_POLICY
-       if(policy == SCHED_LOTTERY){
-               add_lottery_task_2_list(&rq->lottery_rq, p);
-       }
-#endif
 
 	__setscheduler(rq, p, policy, param->sched_priority);
 
