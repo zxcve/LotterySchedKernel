@@ -522,10 +522,19 @@ static struct root_domain def_root_domain;
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 struct lottery_rq {
-	struct list_head lottery_runnable_head;
-	atomic_t nr_running;
+	struct list_head lottery_list_head;
+	atomic_t  nr_running;
 };
+
+struct lottery_entity{
+	struct task_struct* t;
+	struct list_head lottery_node;
+};
+
 #endif
+
+
+
 
 /*
  * This is the main, per-CPU runqueue data structure.
@@ -557,7 +566,7 @@ struct rq {
 	struct cfs_rq cfs;
 	struct rt_rq rt;
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-	struct lottery_rq lottery_rq;
+	struct lottery_rq lrq;
 #endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -1862,16 +1871,16 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 #include "sched_stats.h"
 #include "sched_idletask.c"
 #include "sched_fair.c"
+#ifdef  CONFIG_SCHED_LOTTERY_POLICY
+# include "sched_lottery.c"
+#endif
 #include "sched_rt.c"
 #ifdef CONFIG_SCHED_DEBUG
 # include "sched_debug.c"
 #endif
-#ifdef	CONFIG_SCHED_LOTTERY_POLICY
-# include "sched_lottery.c"
-#endif
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-	#define sched_class_highest (&lottery_sched_class)
+	#define sched_class_highest (&rt_sched_class)
 #else
 	#define sched_class_highest (&rt_sched_class)
 #endif
@@ -5626,13 +5635,13 @@ need_resched_nonpreemptible:
 #ifdef  CONFIG_SCHED_LOTTERY_POLICY
         if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
                 if(prev->policy==SCHED_LOTTERY && next->policy==SCHED_LOTTERY){
-                        snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(%d:%d)",prev->lt.lottery_id,prev->pid,next->lt.lottery_id,next->pid); 
+                        snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d),next->(%d)",prev->pid,next->pid); 
                 }
                 else{
                         if(prev->policy==SCHED_LOTTERY){
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(-1:%d)",prev->lt.lottery_id,prev->pid,next->pid); 
+                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d),next->(%d)",prev->pid,next->pid); 
                         }else{
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(-1:%d),next->(%d:%d)",prev->pid,next->lt.lottery_id,next->pid); 
+                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d),next->(%d)",prev->pid,next->pid); 
                         }
                 }
                 register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
@@ -6487,8 +6496,8 @@ recheck:
 	}
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	if(policy==SCHED_LOTTERY){
-		p->lt.tickets = param->tickets;
-		p->lt.lottery_id = param->lottery_id;
+		p->numberOfTickets = param->tickets;
+		//p->lt.lottery_id = param->lottery_id;
 	}
 #endif
 	if (user) {
@@ -9669,7 +9678,7 @@ void __init sched_init(void)
 #ifdef CONFIG_CGROUP_SCHED
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-	init_lottery_rq(&rq->lottery_rq);
+	init_lottery_rq(&rq->lrq);
 #endif
 		/*
 		 * How much cpu bandwidth does init_task_group get?

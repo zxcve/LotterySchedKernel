@@ -41,6 +41,9 @@
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 #define SCHED_LOTTERY		6
+#define INIT_TICKETS		3
+#define MAX_TICKETS		5
+#define MIN_TICKETS		1
 #endif
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
 #define SCHED_RESET_ON_FORK     0x40000000
@@ -51,7 +54,7 @@ struct sched_param {
 	int sched_priority;
 
 #ifdef	CONFIG_SCHED_LOTTERY_POLICY
-	unsigned int    lottery_id;
+	//unsigned int    lottery_id;
 	unsigned long long tickets;
 #endif
 };
@@ -1228,7 +1231,7 @@ struct sched_rt_entity {
 #endif
 };
 
-
+/*
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 struct sched_lottery_entity {
 	struct list_head lottery_runnable_node;
@@ -1237,6 +1240,7 @@ struct sched_lottery_entity {
 	struct task_struct *task;
 };
 #endif
+*/
 
 struct rcu_node;
 
@@ -1262,7 +1266,9 @@ struct task_struct {
 	struct sched_entity se;
 	struct sched_rt_entity rt;
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-	struct sched_lottery_entity lt;
+	//struct sched_lottery_entity lt;
+	unsigned int numberOfTickets;
+	unsigned long prevjiffies;
 #endif
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
@@ -2662,8 +2668,8 @@ struct lottery_event_log{
 	unsigned long lines;
 	unsigned long cursor;
 };
-void init_lottery_event_log();
-struct lottery_event_log * get_lottery_event_log();
+void init_lottery_event_log(void);
+struct lottery_event_log * get_lottery_event_log(void);
 void register_lottery_event(unsigned long long t, char *m, int a);
 
 #endif
