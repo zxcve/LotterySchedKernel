@@ -76,15 +76,18 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 }
 */
 
+static struct task_struct *pick_next_task_lottery(struct rq *rq);
+
 static void check_preempt_curr_lottery(struct rq *rq, struct task_struct *p, int flags)
 {
-	/*struct sched_lottery_entity *t=NULL;
-	t=conduct_lottery(&rq->lottery_rq);
+	
+	struct task_struct *t=NULL;
+	t=pick_next_task_lottery(rq);
 	if(t){
-		if(&p->lt != t) {
+		if(p != t) {
 			resched_task(rq->curr);
 		}
-	}*/
+	}
 }
 
 static struct task_struct *pick_next_task_lottery(struct rq *rq)
@@ -240,6 +243,18 @@ unsigned int get_rr_interval_lottery(struct rq *rq, struct task_struct *task)
 
 static void yield_task_lottery(struct rq *rq)
 {
+	struct lottery_entity *t=NULL;
+        char msg[LOTTERY_MSG_SIZE];
+        struct lottery_rq *lrq = &rq->lrq;
+        struct list_head *queue = &lrq->lottery_list_head;
+        struct list_head *temp, *next;
+        struct lottery_entity *e;
+       	list_for_each_safe(temp,next,queue){
+		e = list_entry(temp,struct lottery_entity,lottery_node);
+                list_del_init(temp);
+                break;
+        }
+	list_add_tail(&e->lottery_node , &rq->lrq.lottery_list_head);
 }
 
 

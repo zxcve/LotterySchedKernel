@@ -6496,7 +6496,7 @@ recheck:
 	}
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	if(policy==SCHED_LOTTERY){
-		p->numberOfTickets = param->tickets;
+		p->numberOfTickets = param->tickets > 0 ? param->tickets : 2;
 		//p->lt.lottery_id = param->lottery_id;
 	}
 #endif
