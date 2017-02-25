@@ -7,6 +7,7 @@
  * log functions.
  */
 #include <linux/random.h>
+#include <linux/rbtree_augmented.h>
 
 unsigned long long max_tickets;
 
@@ -43,7 +44,11 @@ void register_lottery_event(unsigned long long t, char *m, int a)
  */
 void init_lottery_rq(struct lottery_rq *lottery_rq)
 {
+#ifdef USE_LIST
 	INIT_LIST_HEAD(&lottery_rq->lottery_runnable_head);
+#else
+	lottery_rq->lottery_rb_root=RB_ROOT;
+#endif
 	atomic_set(&lottery_rq->nr_running,0);
 }
 
@@ -51,28 +56,126 @@ void init_lottery_rq(struct lottery_rq *lottery_rq)
  * rb_tree functions.
  */
 
-void remove_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
+#ifndef USE_LIST
+
+static inline unsigned long long
+compute_subtree_left(struct sched_lottery_entity *node)
 {
-	list_del(&(p->lottery_runnable_node));
-}
-void insert_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
-{
-	list_add(&p->lottery_runnable_node,&rq->lottery_runnable_head);
+	struct sched_lottery_entity *tmp;
+	if (node->lottery_rb_node.rb_left) {
+		tmp = rb_entry(node->lottery_rb_node.rb_left,
+			struct sched_lottery_entity, lottery_rb_node);
+		return tmp->left_tickets + tmp->tickets + tmp->right_tickets;
+	}
+	return 0;
 }
 
+
+static inline unsigned long long
+compute_subtree_right(struct sched_lottery_entity *node)
+{
+	struct sched_lottery_entity *tmp;
+	if (node->lottery_rb_node.rb_right) {
+		tmp = rb_entry(node->lottery_rb_node.rb_right,
+			struct sched_lottery_entity, lottery_rb_node);
+		return tmp->left_tickets + tmp->tickets + tmp->right_tickets;
+	}
+	return 0;
+}
+
+
+static void augment_propagate(struct rb_node *rb, struct rb_node *stop)
+{
+	while (rb != stop) {
+		struct sched_lottery_entity *node =
+			rb_entry(rb, struct sched_lottery_entity, lottery_rb_node);
+
+		node->left_tickets = compute_subtree_left(node);
+		node->right_tickets = compute_subtree_right(node);
+
+		rb = rb_parent(&node->lottery_rb_node);
+	}
+}
+
+static void augment_copy(struct rb_node *rb_old, struct rb_node *rb_new)
+{
+	struct sched_lottery_entity *old =
+		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
+	struct sched_lottery_entity *new =
+		rb_entry(rb_new, struct sched_lottery_entity, lottery_rb_node);
+
+	new->left_tickets = old->left_tickets;
+}
+
+static void augment_rotate(struct rb_node *rb_old, struct rb_node *rb_new)
+{
+	struct sched_lottery_entity *old =
+		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
+	struct sched_lottery_entity *new =
+		rb_entry(rb_new, struct sched_lottery_entity, lottery_rb_node);
+
+	old->left_tickets = compute_subtree_left(old);
+	old->right_tickets = compute_subtree_right(old);
+
+	new->left_tickets = compute_subtree_left(new);
+	new->right_tickets = compute_subtree_right(new);
+}
+
+static const struct rb_augment_callbacks augment_callbacks = {
+	augment_propagate, augment_copy, augment_rotate
+};
+
+void remove_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
+{
+	rb_erase_augmented(&p->lottery_rb_node, &rq->lottery_rb_root, &augment_callbacks);
+}
+
+void insert_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
+{
+	struct rb_node **link = &rq->lottery_rb_root.rb_node;
+	struct rb_node *parent = NULL;
+	struct sched_lottery_entity *myparent;
+
+	while (*link) {
+		parent=*link;
+		myparent = rb_entry(parent, struct sched_lottery_entity, lottery_rb_node);
+		if (myparent->tickets > p->tickets) {
+			myparent->left_tickets += p->tickets;
+			link = &(*link)->rb_left;
+		}
+		else if (myparent->tickets < p->tickets) {
+			myparent->right_tickets += p->tickets;
+			link = &(*link)->rb_right;
+		}
+		else if (myparent->task->pid > p->task->pid) {
+			myparent->left_tickets += p->tickets;
+			link = &(*link)->rb_left;
+		}
+		else {
+			myparent->right_tickets += p->tickets;
+			link = &(*link)->rb_right;
+		}
+	}
+	rb_link_node(&p->lottery_rb_node, parent, link);
+	rb_insert_augmented(&p->lottery_rb_node, &rq->lottery_rb_root, &augment_callbacks);
+}
+#endif
 
 static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 {
-	struct list_head *ptr=NULL;
-	struct sched_lottery_entity *lottery_task=NULL;
-	unsigned long iterator = 0;
 	unsigned long lottery;
-
+	struct sched_lottery_entity *lottery_task=NULL;
+#ifdef USE_LIST
+	struct list_head *ptr=NULL;
+	unsigned long iterator = 0;
+#else
+	struct rb_node *node = rq->lottery_rb_root.rb_node;
+#endif
 	if (max_tickets > 0)
 		lottery = get_random_int() % max_tickets;
 	else
 		return NULL;
-
+#ifdef USE_LIST
 	list_for_each(ptr,&rq->lottery_runnable_head){
 		lottery_task=list_entry(ptr,struct sched_lottery_entity, lottery_runnable_node);
 
@@ -83,6 +186,17 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 			return lottery_task;
 		}
 	}
+#else
+	while (node) {
+		lottery_task = rb_entry(node, struct sched_lottery_entity, lottery_rb_node);
+		if (lottery > lottery_task->left_tickets && lottery <= (lottery_task->left_tickets + lottery_task->tickets))
+			return lottery_task;
+		else if (lottery <= lottery_task->left_tickets)
+			node = node->rb_left;
+		else
+			node = node->rb_right;
+	}
+#endif
 	return NULL;
 }
 
@@ -119,7 +233,11 @@ static void enqueue_task_lottery(struct rq *rq, struct task_struct *p, int wakeu
 	char msg[LOTTERY_MSG_SIZE];
 	if(p){
 		max_tickets += p->lt.tickets;
+#ifdef USE_LIST
+		list_add(p->lt.lottery_runnable_node,&rq->lottery_rq->lottery_runnable_head);
+#else
 		insert_lottery_task_rb_tree(&rq->lottery_rq, &p->lt);
+#endif
 		atomic_inc(&rq->lottery_rq.nr_running);
 		snprintf(msg,LOTTERY_MSG_SIZE,"(%d:%d:%llu)",p->lt.lottery_id,p->pid,p->lt.tickets); 
 		register_lottery_event(sched_clock(), msg, LOTTERY_ENQUEUE);
@@ -133,8 +251,12 @@ static void dequeue_task_lottery(struct rq *rq, struct task_struct *p, int sleep
 	if(p){
 		t = &p->lt;
 		snprintf(msg,LOTTERY_MSG_SIZE,"(%d:%d:%llu)",t->lottery_id,p->pid,t->tickets); 
-		register_lottery_event(sched_clock(), msg, LOTTERY_DEQUEUE);	
+		register_lottery_event(sched_clock(), msg, LOTTERY_DEQUEUE);
+#ifdef USE_LIST
+		list_del(&(t->lottery_runnable_node));
+#else
 		remove_lottery_task_rb_tree(&rq->lottery_rq, t);
+#endif
 		atomic_dec(&rq->lottery_rq.nr_running);
 		max_tickets -= t->tickets;
 	}

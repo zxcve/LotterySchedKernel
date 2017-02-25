@@ -523,6 +523,7 @@ static struct root_domain def_root_domain;
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 struct lottery_rq {
 	struct list_head lottery_runnable_head;
+	struct rb_root lottery_rb_root;
 	atomic_t nr_running;
 };
 #endif

@@ -1232,6 +1232,9 @@ struct sched_rt_entity {
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 struct sched_lottery_entity {
 	struct list_head lottery_runnable_node;
+	struct rb_node lottery_rb_node;
+	unsigned long long left_tickets;
+	unsigned long long right_tickets;
 	unsigned long long tickets;
 	unsigned int lottery_id;
 	struct task_struct *task;
@@ -2662,8 +2665,9 @@ struct lottery_event_log{
 	unsigned long lines;
 	unsigned long cursor;
 };
-void init_lottery_event_log();
-struct lottery_event_log * get_lottery_event_log();
+
+void init_lottery_event_log(void);
+struct lottery_event_log * get_lottery_event_log(void);
 void register_lottery_event(unsigned long long t, char *m, int a);
 
 #endif
