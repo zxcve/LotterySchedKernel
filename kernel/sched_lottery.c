@@ -7,7 +7,7 @@
  * log functions.
  */
 #include <linux/random.h>
-
+#include <linux/latencytop.h>
 unsigned long long max_tickets;
 
 struct lottery_event_log lottery_event_log;
@@ -47,6 +47,31 @@ void init_lottery_rq(struct lottery_rq *lottery_rq)
 	atomic_set(&lottery_rq->nr_running,0);
 }
 
+
+static void update_timestamp(struct rq* rq)
+{
+        struct task_struct *currtask=rq->curr;
+	struct sched_entity *curr=&currtask->se;
+        u64 now = rq->clock;
+        unsigned long delta_exec;
+	unsigned long long currentjiffies=jiffies;
+	currtask->lottery_task_jiffies +=currentjiffies- currtask->lottery_start_jiffies;
+        /*
+         * Get the amount of time the current task was running
+         * since the last time we changed load (this cannot
+         * overflow on 32 bits):
+         */
+        delta_exec = (unsigned long)(now - curr->exec_start);
+        if (!delta_exec)
+                return;
+
+	curr->sum_exec_runtime += delta_exec;
+        curr->exec_start = now;
+              
+       
+	
+}
+
 /*
  * rb_tree functions.
  */
@@ -67,7 +92,6 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 	struct sched_lottery_entity *lottery_task=NULL;
 	unsigned long iterator = 0;
 	unsigned long lottery;
-
 	if (max_tickets > 0)
 		lottery = get_random_int() % max_tickets;
 	else
@@ -90,6 +114,7 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 static void check_preempt_curr_lottery(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_lottery_entity *t=NULL;
+	update_timestamp(rq);
 //	if(rq->curr->policy!=SCHED_LOTTERY){
 //		resched_task(rq->curr);
 //	}
@@ -143,7 +168,7 @@ static void dequeue_task_lottery(struct rq *rq, struct task_struct *p, int sleep
 
 static void put_prev_task_lottery(struct rq *rq, struct task_struct *prev)
 {
-
+	update_timestamp(rq);
 }
 
 #ifdef CONFIG_SMP
@@ -164,16 +189,9 @@ static int move_one_task_lottery(struct rq *this_rq, int this_cpu, struct rq *bu
 
 static void task_tick_lottery(struct rq *rq, struct task_struct *p, int queued)
 {
-/*
 	struct sched_lottery_entity *t=NULL;
-
-	t=conduct_lottery(&rq->lottery_rq);
-	if(t){
-		if(&p->lt != t) {
-			resched_task(rq->curr);
-		}
-	}
-	*/
+	update_timestamp(rq);
+	resched_task(rq->curr);	
 }
 
 static void set_curr_task_lottery(struct rq *rq)
@@ -213,7 +231,7 @@ unsigned int get_rr_interval_lottery(struct rq *rq, struct task_struct *task)
 
 static void yield_task_lottery(struct rq *rq)
 {
-
+	update_timestamp(rq);
 }
 
 

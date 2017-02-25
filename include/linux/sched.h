@@ -1263,6 +1263,8 @@ struct task_struct {
 	struct sched_rt_entity rt;
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	struct sched_lottery_entity lt;
+	unsigned long long lottery_task_jiffies;
+	unsigned long long lottery_start_jiffies;
 #endif
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
