@@ -5581,6 +5581,7 @@ pick_next_task(struct rq *rq)
 asmlinkage void __sched schedule(void)
 {
 	struct task_struct *prev, *next;
+	struct sched_entity *sched_prev, *sched_next;
 	unsigned long *switch_count;
 	struct rq *rq;
 	int cpu;
@@ -5624,9 +5625,10 @@ need_resched_nonpreemptible:
 
 	put_prev_task(rq, prev);
 	next = pick_next_task(rq);
-
-#ifdef  CONFIG_SCHED_LOTTERY_POLICY
-        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
+        sched_prev=&prev->se;
+	sched_next=&next->se;
+        #ifdef  CONFIG_SCHED_LOTTERY_POLICY
+/*        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
                 if(prev->policy==SCHED_LOTTERY && next->policy==SCHED_LOTTERY){
                         snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(%d:%d)",prev->lt.lottery_id,prev->pid,next->lt.lottery_id,next->pid); 
                 }
@@ -5640,7 +5642,18 @@ need_resched_nonpreemptible:
                 register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
 
 
-        } 
+        } */
+
+	        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
+                        if(prev->policy==SCHED_LOTTERY){
+                                snprintf(msg,LOTTERY_MSG_SIZE,"TotalRunTime of %d = %llu",prev->pid,prev->lottery_task_jiffies);
+                        }else{
+                                snprintf(msg,LOTTERY_MSG_SIZE,"TotalRuntime of %d = %llu ",next->pid,next->lottery_task_jiffies);
+                        }
+                register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
+
+        }
+
 #endif
 
 	if (likely(prev != next)) {
