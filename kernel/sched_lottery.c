@@ -169,8 +169,10 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 #else
 	struct rb_node *node = rq->lottery_rb_root.rb_node;
 #endif
-	if (rq->max_tickets > 0)
-		lottery = get_random_bytes(&lottery, sizeof(unsigned long long)) % rq->max_tickets;
+	if ( rq->max_tickets > 0) {
+		get_random_bytes(&lottery, sizeof(unsigned long long));
+		lottery = lottery % rq->max_tickets;
+	}
 	else
 		return NULL;
 #ifdef USE_LIST
@@ -229,7 +231,7 @@ static void enqueue_task_lottery(struct rq *rq, struct task_struct *p, int wakeu
 {
 	char msg[LOTTERY_MSG_SIZE];
 	if(p){
-		rq->max_tickets += p->lt.tickets;
+		rq->lottery_rq.max_tickets += p->lt.tickets;
 #ifdef USE_LIST
 		list_add(p->lt.lottery_runnable_node,&rq->lottery_rq->lottery_runnable_head);
 #else
@@ -255,7 +257,7 @@ static void dequeue_task_lottery(struct rq *rq, struct task_struct *p, int sleep
 		remove_lottery_task_rb_tree(&rq->lottery_rq, t);
 #endif
 		atomic_dec(&rq->lottery_rq.nr_running);
-		rq->max_tickets -= t->tickets;
+		rq->lottery_rq.max_tickets -= t->tickets;
 	}
 }
 
