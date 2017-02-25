@@ -9,8 +9,6 @@
 #include <linux/random.h>
 #include <linux/rbtree_augmented.h>
 
-unsigned long long max_tickets;
-
 struct lottery_event_log lottery_event_log;
 
 struct lottery_event_log * get_lottery_event_log(void)
@@ -163,16 +161,16 @@ void insert_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_ent
 
 static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 {
-	unsigned long lottery;
+	unsigned long long lottery;
 	struct sched_lottery_entity *lottery_task=NULL;
 #ifdef USE_LIST
 	struct list_head *ptr=NULL;
-	unsigned long iterator = 0;
+	unsigned long long iterator = 0;
 #else
 	struct rb_node *node = rq->lottery_rb_root.rb_node;
 #endif
-	if (max_tickets > 0)
-		lottery = get_random_int() % max_tickets;
+	if (rq->max_tickets > 0)
+		lottery = get_random_bytes(&lottery, sizeof(unsigned long long)) % rq->max_tickets;
 	else
 		return NULL;
 #ifdef USE_LIST
@@ -182,7 +180,6 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 		iterator += lottery_task->tickets;
 
 		if (iterator > lottery) {
-			//printk("ticket %lu winner %llu total %d \n", lottery, lottery_task->tickets, rq->nr_running);
 			return lottery_task;
 		}
 	}
@@ -232,7 +229,7 @@ static void enqueue_task_lottery(struct rq *rq, struct task_struct *p, int wakeu
 {
 	char msg[LOTTERY_MSG_SIZE];
 	if(p){
-		max_tickets += p->lt.tickets;
+		rq->max_tickets += p->lt.tickets;
 #ifdef USE_LIST
 		list_add(p->lt.lottery_runnable_node,&rq->lottery_rq->lottery_runnable_head);
 #else
@@ -258,7 +255,7 @@ static void dequeue_task_lottery(struct rq *rq, struct task_struct *p, int sleep
 		remove_lottery_task_rb_tree(&rq->lottery_rq, t);
 #endif
 		atomic_dec(&rq->lottery_rq.nr_running);
-		max_tickets -= t->tickets;
+		rq->max_tickets -= t->tickets;
 	}
 }
 

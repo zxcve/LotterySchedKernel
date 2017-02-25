@@ -524,6 +524,7 @@ static struct root_domain def_root_domain;
 struct lottery_rq {
 	struct list_head lottery_runnable_head;
 	struct rb_root lottery_rb_root;
+	unsigned long long max_tickets;
 	atomic_t nr_running;
 };
 #endif
@@ -9670,7 +9671,7 @@ void __init sched_init(void)
 #ifdef CONFIG_CGROUP_SCHED
 
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
-	init_lottery_rq(&rq->lottery_rq);
+		init_lottery_rq(&rq->lottery_rq);
 #endif
 		/*
 		 * How much cpu bandwidth does init_task_group get?
