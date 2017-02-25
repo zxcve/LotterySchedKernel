@@ -79,7 +79,7 @@ static struct sched_lottery_entity * conduct_lottery(struct lottery_rq *rq)
 		iterator += lottery_task->tickets;
 
 		if (iterator > lottery) {
-			printk("ticket %lu winner %llu total %d \n", lottery, lottery_task->tickets, rq->nr_running);
+			//printk("ticket %lu winner %llu total %d \n", lottery, lottery_task->tickets, rq->nr_running);
 			return lottery_task;
 		}
 	}
@@ -109,7 +109,6 @@ static struct task_struct *pick_next_task_lottery(struct rq *rq)
 	struct sched_lottery_entity *t=NULL;
 	t= conduct_lottery(&rq->lottery_rq);
 	if(t){
-		printk("taken\n");
 		return t->task;
 	}
 	return NULL;
