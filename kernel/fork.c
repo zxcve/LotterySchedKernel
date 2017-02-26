@@ -1130,7 +1130,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	p->lt.task = p;
 	p->lt.tickets = 0;
-	p->lt.lottery_id = 0;
 #endif
 
 	p->bts = NULL;

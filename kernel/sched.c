@@ -1864,19 +1864,15 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 #include "sched_stats.h"
 #include "sched_idletask.c"
 #include "sched_fair.c"
+#ifdef	CONFIG_SCHED_LOTTERY_POLICY
+# include "sched_lottery.c"
+#endif
 #include "sched_rt.c"
 #ifdef CONFIG_SCHED_DEBUG
 # include "sched_debug.c"
 #endif
-#ifdef	CONFIG_SCHED_LOTTERY_POLICY
-# include "sched_lottery.c"
-#endif
 
-#ifdef CONFIG_SCHED_LOTTERY_POLICY
-	#define sched_class_highest (&lottery_sched_class)
-#else
-	#define sched_class_highest (&rt_sched_class)
-#endif
+#define sched_class_highest (&rt_sched_class)
 
 #define for_each_class(class) \
    for (class = sched_class_highest; class; class = class->next)
@@ -5627,28 +5623,12 @@ need_resched_nonpreemptible:
 	next = pick_next_task(rq);
         sched_prev=&prev->se;
 	sched_next=&next->se;
-        #ifdef  CONFIG_SCHED_LOTTERY_POLICY
-/*        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
-                if(prev->policy==SCHED_LOTTERY && next->policy==SCHED_LOTTERY){
-                        snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(%d:%d)",prev->lt.lottery_id,prev->pid,next->lt.lottery_id,next->pid); 
-                }
-                else{
-                        if(prev->policy==SCHED_LOTTERY){
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(%d:%d),next->(-1:%d)",prev->lt.lottery_id,prev->pid,next->pid); 
-                        }else{
-                                snprintf(msg,LOTTERY_MSG_SIZE,"prev->(-1:%d),next->(%d:%d)",prev->pid,next->lt.lottery_id,next->pid); 
-                        }
-                }
-                register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
-
-
-        } */
-
+#ifdef  CONFIG_SCHED_LOTTERY_POLICY
 	        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
                         if(prev->policy==SCHED_LOTTERY){
-                                snprintf(msg,LOTTERY_MSG_SIZE,"TotalRunTime of %d = %llu",prev->pid,prev->lottery_task_jiffies);
+                                snprintf(msg,LOTTERY_MSG_SIZE,"Prev TotalRunTime of %d = %llu",prev->pid,prev->se.sum_exec_runtime);
                         }else{
-                                snprintf(msg,LOTTERY_MSG_SIZE,"TotalRuntime of %d = %llu ",next->pid,next->lottery_task_jiffies);
+                                snprintf(msg,LOTTERY_MSG_SIZE,"Next TotalRuntime of %d = %llu ",next->pid,next->se.sum_exec_runtime);
                         }
                 register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
 
@@ -6503,7 +6483,6 @@ recheck:
 #ifdef CONFIG_SCHED_LOTTERY_POLICY
 	if(policy==SCHED_LOTTERY){
 		p->lt.tickets = param->tickets;
-		p->lt.lottery_id = param->lottery_id;
 	}
 #endif
 	if (user) {
