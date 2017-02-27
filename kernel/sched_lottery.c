@@ -10,7 +10,7 @@
 #include <linux/rbtree_augmented.h>
 #include <linux/latencytop.h>
 
-#define LOTTERY_RQ_LIST 0
+#define LOTTERY_RQ_LIST 1
 
 struct lottery_event_log lottery_event_log;
 unsigned long long lottery_iteration = 0;
@@ -49,10 +49,6 @@ void register_lottery_event(unsigned long long t, char *m, int a)
 		strncpy(lottery_event_log.lottery_event[lottery_event_log.lines].msg,m,LOTTERY_MSG_SIZE-1);
 		lottery_event_log.lines++;
 	}
-	else{
-	//	printk(KERN_ALERT "register_lottery_event: full\n");
-	}
-
 }
 
 /*
@@ -358,12 +354,14 @@ static void switched_to_lottery(struct rq *rq, struct task_struct *p,
 
 unsigned int get_rr_interval_lottery(struct rq *rq, struct task_struct *task)
 {
-    return 0;
+    return HZ;
 }
 
 static void yield_task_lottery(struct rq *rq)
 {
 	update_curr_lottery(rq);
+
+	resched_task(rq->curr);
 }
 
 
@@ -374,13 +372,13 @@ static void yield_task_lottery(struct rq *rq)
 static void prio_changed_lottery(struct rq *rq, struct task_struct *p,
 			    int oldprio, int running)
 {
+	update_curr_lottery(rq);
 
+	resched_task(rq->curr);
 }
 
 static int select_task_rq_lottery(struct rq *rq, struct task_struct *p, int sd_flag, int flags)
 {
-
-//	struct rq *rq = task_rq(p);
 
 	if (sd_flag != SD_BALANCE_WAKE)
 		return smp_processor_id();
