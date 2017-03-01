@@ -35,19 +35,55 @@ void lottery_get_latency(unsigned long long *iteration, unsigned long long *late
 void init_lottery_event_log(void)
 {
 	char msg[LOTTERY_MSG_SIZE];
-	lottery_event_log.lines=lottery_event_log.cursor=0;
-	snprintf(msg,LOTTERY_MSG_SIZE,"init_lottery_event_log:(%lu:%lu)", lottery_event_log.lines, lottery_event_log.cursor); 
+	lottery_event_log.head=lottery_event_log.tail=lottery_event_log.cursor=lottery_event_log.size=0;
+	snprintf(msg,LOTTERY_MSG_SIZE,"init_lottery_event_log:(%lu:%lu)", lottery_event_log.tail, lottery_event_log.cursor); 
 	register_lottery_event(sched_clock(), msg, LOTTERY_MSG);
 
 }
 void register_lottery_event(unsigned long long t, char *m, int a)
 {
 
-	if(lottery_event_log.lines < LOTTERY_MAX_EVENT_LINES){
-		lottery_event_log.lottery_event[lottery_event_log.lines].action=a;
-		lottery_event_log.lottery_event[lottery_event_log.lines].timestamp=t;
-		strncpy(lottery_event_log.lottery_event[lottery_event_log.lines].msg,m,LOTTERY_MSG_SIZE-1);
-		lottery_event_log.lines++;
+	/*
+	if(lottery_event_log.tail >= LOTTERY_MAX_EVENT_LINES){
+		lottery_event_log.tail = 0;
+		if(lottery_event_log.cursor == lottery_event_log.head) {
+			lottery_event_log.cursor++;
+		}
+		lottery_event_log.head++;
+	}
+	lottery_event_log.lottery_event[lottery_event_log.tail].action=a;
+	lottery_event_log.lottery_event[lottery_event_log.tail].timestamp=t;
+	strncpy(lottery_event_log.lottery_event[lottery_event_log.tail].msg,m,LOTTERY_MSG_SIZE-1);
+	lottery_event_log.tail++;
+	if (lottery_event_log.head == lottery_event_log.tail) {
+		if(lottery_event_log.cursor == lottery_event_log.head) {
+			lottery_event_log.cursor++;
+		}
+		lottery_event_log.head++;
+		if(lottery_event_log.head == LOTTERY_MAX_EVENT_LINES) {
+			lottery_event_log.head = 0;
+		}
+		if(lottery_event_log.cursor == LOTTERY_MAX_EVENT_LINES) {
+			lottery_event_log.cursor = 0;
+		}
+	}
+	*/	
+	lottery_event_log.lottery_event[lottery_event_log.tail].action=a;
+	lottery_event_log.lottery_event[lottery_event_log.tail].timestamp=t;
+	strncpy(lottery_event_log.lottery_event[lottery_event_log.tail].msg,m,LOTTERY_MSG_SIZE-1);
+	lottery_event_log.tail = (lottery_event_log.tail + 1) % LOTTERY_MAX_EVENT_LINES;
+
+	if(lottery_event_log.size == LOTTERY_MAX_EVENT_LINES) 
+	{
+		if (lottery_event_log.cursor == lottery_event_log.head) {
+			lottery_event_log.cursor = (lottery_event_log.cursor + 1) % LOTTERY_MAX_EVENT_LINES;
+			lottery_event_log.flag = 0;
+		}
+		lottery_event_log.head = (lottery_event_log.head + 1) % LOTTERY_MAX_EVENT_LINES;
+	}
+	else 
+	{
+		lottery_event_log.size++;
 	}
 }
 
@@ -256,6 +292,8 @@ static struct task_struct *pick_next_task_lottery(struct rq *rq)
 		lottery_latency += sched_clock() - old_time;
 		lottery_iteration++;
 		t->task->se.exec_start = rq->clock;
+		snprintf(msg, LOTTERY_MSG_SIZE, "next task %d\n", t->task->pid);
+		register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
 		return t->task;
 	}
 	return NULL;
@@ -323,8 +361,8 @@ static void task_tick_lottery(struct rq *rq, struct task_struct *p, int queued)
 	char msg[LOTTERY_MSG_SIZE];
 
 	update_curr_lottery(rq);
-//	snprintf(msg,LOTTERY_MSG_SIZE, "tick %d \n", rq->curr->pid);
-//	register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
+	snprintf(msg,LOTTERY_MSG_SIZE, "tick %d \n", rq->curr->pid);
+	register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
 	resched_task(rq->curr);
 }
 

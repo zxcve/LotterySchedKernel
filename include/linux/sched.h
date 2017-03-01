@@ -2646,7 +2646,7 @@ static inline unsigned long rlimit_max(unsigned int limit)
 #ifdef	CONFIG_SCHED_LOTTERY_POLICY
 
 #define LOTTERY_MSG_SIZE		400
-#define LOTTERY_MAX_EVENT_LINES	10000
+#define LOTTERY_MAX_EVENT_LINES	5
 
 #define LOTTERY_ENQUEUE			1
 #define LOTTERY_DEQUEUE			2
@@ -2662,8 +2662,11 @@ struct lottery_event{
 
 struct lottery_event_log{
 	struct lottery_event lottery_event[LOTTERY_MAX_EVENT_LINES];
-	unsigned long lines;
-	unsigned long cursor;
+	unsigned int tail;
+	unsigned int head;
+	unsigned int size;
+	unsigned int cursor;
+	unsigned int flag;
 };
 
 void init_lottery_event_log(void);
