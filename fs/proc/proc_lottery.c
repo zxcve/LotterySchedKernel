@@ -54,8 +54,8 @@
 void lottery_reset_latency(void);
 void lottery_get_latency(unsigned long long *iteration, unsigned long long *latency);
 
-struct proc_dir_entry *lottery_dir;
-unsigned int length = 0;
+static struct proc_dir_entry *lottery_dir;
+static unsigned int length = 0;
 
 static int lottery_open(struct inode *inode, struct file *file)
 {
@@ -85,8 +85,12 @@ static ssize_t lottery_latency_read(struct file *filp, char __user *buf,
 	char buffer[200];
 	lottery_get_latency(&iteration, &latency);
 
+	if(unlikely(!access_ok(VERIFY_WRITE, buf, count)))
+		return -1;
+
 	if (length != 0)
 		return 0;
+
 	if (iteration == 0)
 		latency_per_cycle = 0;
 	else
@@ -113,12 +117,14 @@ static ssize_t lottery_log_read(struct file *filep, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
         char buffer[LOTTERY_MSG_SIZE];
-        unsigned int len=0,k,i,lines=0, idx=0, ctail;
+        unsigned int len=0,idx=0;
         struct lottery_event_log *log=NULL;
         buffer[0]='\0';
         log=get_lottery_event_log();
-        if(log){
-		//printk(KERN_INFO "h:%u t:%u c:%u s:%u\n", log->head, log->tail, log->cursor, log->size);
+        if(likely(log)){
+		if(unlikely(!access_ok(VERIFY_WRITE, buf, count)))
+			return -1;
+
 		if(log->cursor == log->tail)
 		{
 			if(log->size < LOTTERY_MAX_EVENT_LINES)
@@ -144,7 +150,6 @@ static ssize_t lottery_log_read(struct file *filep, const char __user *buf,
         }
 
 exit:
-	//printk(KERN_INFO "h:%u t:%u c:%u s:%u %u\n", log->head, log->tail, log->cursor, log->size, len);
         return len;
 }
 

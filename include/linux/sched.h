@@ -2646,13 +2646,15 @@ static inline unsigned long rlimit_max(unsigned int limit)
 #ifdef	CONFIG_SCHED_LOTTERY_POLICY
 
 #define LOTTERY_MSG_SIZE		400
-#define LOTTERY_MAX_EVENT_LINES	5
+#define LOTTERY_MAX_EVENT_LINES		100
 
 #define LOTTERY_ENQUEUE			1
 #define LOTTERY_DEQUEUE			2
 #define	LOTTERY_CONTEXT_SWITCH	3
 #define	LOTTERY_MSG				4
 #define	LOTTERY_PICK_TIME		5
+
+#define LOTTERY_DEBUG	4
 
 struct lottery_event{
 	int action;
@@ -2671,7 +2673,8 @@ struct lottery_event_log{
 
 void init_lottery_event_log(void);
 struct lottery_event_log * get_lottery_event_log(void);
-void register_lottery_event(unsigned long long t, char *m, int a);
+void register_lottery_event(unsigned long long t, int a, char* format, va_list a_list);
+void lottery_log(int flag, int action, char* format, ...);
 
 #endif
 

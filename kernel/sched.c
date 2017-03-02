@@ -5583,7 +5583,6 @@ asmlinkage void __sched schedule(void)
 	int cpu;
 
 #ifdef  CONFIG_SCHED_LOTTERY_POLICY
-        char msg[LOTTERY_MSG_SIZE];
 #endif
 
 need_resched:
@@ -5626,11 +5625,10 @@ need_resched_nonpreemptible:
 #ifdef  CONFIG_SCHED_LOTTERY_POLICY
 	        if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
                         if(prev->policy==SCHED_LOTTERY){
-                                snprintf(msg,LOTTERY_MSG_SIZE,"Prev TotalRunTime of %d = %llu",prev->pid,prev->se.sum_exec_runtime);
+                                lottery_log(LOTTERY_DEBUG, LOTTERY_CONTEXT_SWITCH, "Prev TotalRunTime of %d = %llu",prev->pid,prev->se.sum_exec_runtime);
                         }else{
-                                snprintf(msg,LOTTERY_MSG_SIZE,"Next TotalRuntime of %d = %llu ",next->pid,next->se.sum_exec_runtime);
+                                lottery_log(LOTTERY_DEBUG, LOTTERY_CONTEXT_SWITCH, "Next TotalRuntime of %d = %llu ",next->pid,next->se.sum_exec_runtime);
                         }
-                register_lottery_event(sched_clock(), msg, LOTTERY_CONTEXT_SWITCH);
 
         }
 

@@ -28,49 +28,32 @@ void lottery_reset_latency(void) {
 
 void lottery_get_latency(unsigned long long *iteration, unsigned long long *latency)
 {
+	if(unlikely(iteration == NULL || latency == NULL))
+		return;		
+
 	*latency = lottery_latency;
 	*iteration = lottery_iteration;
 }
 
+void lottery_log(int flag, int action, char* format, ...)
+{
+	va_list a_list;
+	va_start( a_list, format );
+	register_lottery_event(sched_clock(), action, format, a_list);
+	va_end(a_list);
+}
+
 void init_lottery_event_log(void)
 {
-	char msg[LOTTERY_MSG_SIZE];
 	lottery_event_log.head=lottery_event_log.tail=lottery_event_log.cursor=lottery_event_log.size=0;
-	snprintf(msg,LOTTERY_MSG_SIZE,"init_lottery_event_log:(%lu:%lu)", lottery_event_log.tail, lottery_event_log.cursor); 
-	register_lottery_event(sched_clock(), msg, LOTTERY_MSG);
-
+	lottery_log(LOTTERY_DEBUG, LOTTERY_MSG, "init_lottery_event_log:(%lu:%lu)", lottery_event_log.tail, lottery_event_log.cursor); 
 }
-void register_lottery_event(unsigned long long t, char *m, int a)
-{
 
-	/*
-	if(lottery_event_log.tail >= LOTTERY_MAX_EVENT_LINES){
-		lottery_event_log.tail = 0;
-		if(lottery_event_log.cursor == lottery_event_log.head) {
-			lottery_event_log.cursor++;
-		}
-		lottery_event_log.head++;
-	}
+void register_lottery_event(unsigned long long t, int a, char *format, va_list a_list)
+{
 	lottery_event_log.lottery_event[lottery_event_log.tail].action=a;
 	lottery_event_log.lottery_event[lottery_event_log.tail].timestamp=t;
-	strncpy(lottery_event_log.lottery_event[lottery_event_log.tail].msg,m,LOTTERY_MSG_SIZE-1);
-	lottery_event_log.tail++;
-	if (lottery_event_log.head == lottery_event_log.tail) {
-		if(lottery_event_log.cursor == lottery_event_log.head) {
-			lottery_event_log.cursor++;
-		}
-		lottery_event_log.head++;
-		if(lottery_event_log.head == LOTTERY_MAX_EVENT_LINES) {
-			lottery_event_log.head = 0;
-		}
-		if(lottery_event_log.cursor == LOTTERY_MAX_EVENT_LINES) {
-			lottery_event_log.cursor = 0;
-		}
-	}
-	*/	
-	lottery_event_log.lottery_event[lottery_event_log.tail].action=a;
-	lottery_event_log.lottery_event[lottery_event_log.tail].timestamp=t;
-	strncpy(lottery_event_log.lottery_event[lottery_event_log.tail].msg,m,LOTTERY_MSG_SIZE-1);
+	vsnprintf(lottery_event_log.lottery_event[lottery_event_log.tail].msg,LOTTERY_MSG_SIZE-1, format, a_list);
 	lottery_event_log.tail = (lottery_event_log.tail + 1) % LOTTERY_MAX_EVENT_LINES;
 
 	if(lottery_event_log.size == LOTTERY_MAX_EVENT_LINES) 
@@ -123,8 +106,11 @@ static void update_curr_lottery(struct rq* rq)
 static inline unsigned long long
 compute_subtree_left(struct sched_lottery_entity *node)
 {
+	if(unlikely(node == NULL))
+		return -1;
+
 	struct sched_lottery_entity *tmp;
-	if (node->lottery_rb_node.rb_left) {
+	if (likely(node->lottery_rb_node.rb_left)) {
 		tmp = rb_entry(node->lottery_rb_node.rb_left,
 			struct sched_lottery_entity, lottery_rb_node);
 		return tmp->left_tickets + tmp->tickets + tmp->right_tickets;
@@ -136,8 +122,11 @@ compute_subtree_left(struct sched_lottery_entity *node)
 static inline unsigned long long
 compute_subtree_right(struct sched_lottery_entity *node)
 {
+	if(node == NULL)
+		return -1;
+
 	struct sched_lottery_entity *tmp;
-	if (node->lottery_rb_node.rb_right) {
+	if (likely(node->lottery_rb_node.rb_right)) {
 		tmp = rb_entry(node->lottery_rb_node.rb_right,
 			struct sched_lottery_entity, lottery_rb_node);
 		return tmp->left_tickets + tmp->tickets + tmp->right_tickets;
@@ -148,6 +137,9 @@ compute_subtree_right(struct sched_lottery_entity *node)
 
 static void augment_propagate(struct rb_node *rb, struct rb_node *stop)
 {
+	if(unlikely(rb == NULL || stop == NULL))
+		return;
+
 	while (rb != stop) {
 		struct sched_lottery_entity *node =
 			rb_entry(rb, struct sched_lottery_entity, lottery_rb_node);
@@ -161,6 +153,9 @@ static void augment_propagate(struct rb_node *rb, struct rb_node *stop)
 
 static void augment_copy(struct rb_node *rb_old, struct rb_node *rb_new)
 {
+	if(unlikely(rb_old == NULL || rb_new == NULL))
+		return;	
+
 	struct sched_lottery_entity *old =
 		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
 	struct sched_lottery_entity *new =
@@ -171,6 +166,9 @@ static void augment_copy(struct rb_node *rb_old, struct rb_node *rb_new)
 
 static void augment_rotate(struct rb_node *rb_old, struct rb_node *rb_new)
 {
+	if(rb_old == NULL || rb_new == NULL)
+		return;
+
 	struct sched_lottery_entity *old =
 		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
 	struct sched_lottery_entity *new =
@@ -189,6 +187,8 @@ static const struct rb_augment_callbacks augment_callbacks = {
 
 void remove_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
 {
+	if(unlikely(rq == NULL)) return;
+
 	rb_erase_augmented(&p->lottery_rb_node, &rq->lottery_rb_root, &augment_callbacks);
 }
 
@@ -223,7 +223,6 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 	unsigned long long lottery;
 	struct lottery_rq *rq = &trq->lottery_rq;
 	struct sched_lottery_entity *lottery_task=NULL;
-	char msg[LOTTERY_MSG_SIZE];
 #if LOTTERY_RQ_LIST
 	struct list_head *ptr=NULL;
 	unsigned long long iterator = 0;
@@ -231,7 +230,7 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 	struct rb_node *node = rq->lottery_rb_root.rb_node;
 #endif
 
-	if ( rq->max_tickets > 0) {
+	if (likely(rq->max_tickets > 0)) {
 		get_random_bytes(&lottery, sizeof(unsigned long long));
 		lottery = lottery % (rq->max_tickets - 1) + 1;
 	}
@@ -270,12 +269,10 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 static void check_preempt_curr_lottery(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_lottery_entity *t=NULL;
-	char msg[LOTTERY_MSG_SIZE];
 	t=conduct_lottery(rq);
-	if(t){
-		if(&p->lt != t) {
-			snprintf(msg,LOTTERY_MSG_SIZE, "prempt %d\n", rq->curr->pid);
-			register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
+	if(likely(t)){
+		if(likely(&p->lt != t)) {
+			lottery_log(LOTTERY_DEBUG, LOTTERY_PICK_TIME, "check_prempt_curr_lottery called: rescheduling %d.");
 			resched_task(rq->curr);
 		}
 	}
@@ -285,15 +282,13 @@ static struct task_struct *pick_next_task_lottery(struct rq *rq)
 {
 	struct sched_lottery_entity *t=NULL;
 	unsigned long long old_time = sched_clock();
-	char msg[LOTTERY_MSG_SIZE];
 
 	t= conduct_lottery(rq);
-	if(t){
+	if(likely(t)){
 		lottery_latency += sched_clock() - old_time;
 		lottery_iteration++;
 		t->task->se.exec_start = rq->clock;
-		snprintf(msg, LOTTERY_MSG_SIZE, "next task %d\n", t->task->pid);
-		register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
+		lottery_log(LOTTERY_DEBUG, LOTTERY_PICK_TIME, "pick_next_task called: next task pid is %d", t->task->pid);
 		return t->task;
 	}
 	return NULL;
@@ -301,8 +296,7 @@ static struct task_struct *pick_next_task_lottery(struct rq *rq)
 
 static void enqueue_task_lottery(struct rq *rq, struct task_struct *p, int wakeup, bool head)
 {
-	char msg[LOTTERY_MSG_SIZE];
-	if(p){
+	if(likely(p)){
 		rq->lottery_rq.max_tickets += p->lt.tickets;
 #if LOTTERY_RQ_LIST
 		list_add(&p->lt.lottery_runnable_node,&rq->lottery_rq.lottery_runnable_head);
@@ -310,19 +304,16 @@ static void enqueue_task_lottery(struct rq *rq, struct task_struct *p, int wakeu
 		insert_lottery_task_rb_tree(&rq->lottery_rq, &p->lt);
 #endif
 		atomic_inc(&rq->lottery_rq.nr_running);
-		snprintf(msg,LOTTERY_MSG_SIZE,"(%d:%llu)",p->pid,p->lt.tickets); 
-		register_lottery_event(sched_clock(), msg, LOTTERY_ENQUEUE);
+		lottery_log(LOTTERY_DEBUG, LOTTERY_ENQUEUE, "enqueue_task_lottery called. enqueing task with pid %d and tickets %llu",p->pid,p->lt.tickets); 
 	}
 }
 
 static void dequeue_task_lottery(struct rq *rq, struct task_struct *p, int sleep)
 {
 	struct sched_lottery_entity *t=NULL;
-	char msg[LOTTERY_MSG_SIZE];
-	if(p){
+	if(likely(p)){
 		t = &p->lt;
-		snprintf(msg,LOTTERY_MSG_SIZE,"(%d:%llu)",p->pid,t->tickets); 
-		register_lottery_event(sched_clock(), msg, LOTTERY_DEQUEUE);
+		lottery_log(LOTTERY_DEBUG, LOTTERY_DEQUEUE, "dequeue_task_lottery called. dequeuing task with pid %d and tickets %llu",p->pid, t->tickets); 
 		update_curr_lottery(rq);
 #if LOTTERY_RQ_LIST
 		list_del(&(t->lottery_runnable_node));
@@ -358,11 +349,8 @@ static int move_one_task_lottery(struct rq *this_rq, int this_cpu, struct rq *bu
 
 static void task_tick_lottery(struct rq *rq, struct task_struct *p, int queued)
 {
-	char msg[LOTTERY_MSG_SIZE];
-
 	update_curr_lottery(rq);
-	snprintf(msg,LOTTERY_MSG_SIZE, "tick %d \n", rq->curr->pid);
-	register_lottery_event(sched_clock(), msg, LOTTERY_PICK_TIME);
+	lottery_log(LOTTERY_DEBUG, LOTTERY_PICK_TIME, "task_tick_lottery called. updating lottery for task with pid %d", rq->curr->pid);
 	resched_task(rq->curr);
 }
 
