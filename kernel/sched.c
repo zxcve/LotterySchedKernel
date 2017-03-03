@@ -121,7 +121,11 @@
 
 static inline int rt_policy(int policy)
 {
-	if (unlikely(policy == SCHED_FIFO || policy == SCHED_RR))
+	if (unlikely(policy == SCHED_FIFO || policy == SCHED_RR)
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	|| unlikely(policy == SCHED_LOTTERY)
+#endif
+)
 		return 1;
 	return 0;
 }
@@ -516,6 +520,17 @@ static struct root_domain def_root_domain;
 
 #endif
 
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+/**
+ * @brief Structure for run queue of lottery scheduling
+ */
+struct lottery_rq {
+	struct list_head lottery_runnable_head; /*head for list based scheduler */
+	struct rb_root lottery_rb_root; /*root for rbtree based scheduler */
+	unsigned long long max_tickets; /*sum of tickets of all tasks in run queue */
+};
+#endif
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -545,6 +560,9 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	struct lottery_rq lottery_rq;
+#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -1848,6 +1866,11 @@ static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 #include "sched_stats.h"
 #include "sched_idletask.c"
 #include "sched_fair.c"
+
+#ifdef	CONFIG_SCHED_LOTTERY_POLICY
+#include "sched_lottery.c"
+#endif
+
 #include "sched_rt.c"
 #ifdef CONFIG_SCHED_DEBUG
 # include "sched_debug.c"
@@ -5598,6 +5621,19 @@ need_resched_nonpreemptible:
 	next = pick_next_task(rq);
 
 	if (likely(prev != next)) {
+
+#ifdef  CONFIG_SCHED_LOTTERY_POLICY
+		if(prev->policy==SCHED_LOTTERY || next->policy==SCHED_LOTTERY){
+			if(prev->policy==SCHED_LOTTERY){
+				lottery_log(LOTTERY_CONTEXT_SWITCH, "Prev PID:%d with %llu NS runtime",prev->pid,prev->se.sum_exec_runtime);
+			}
+
+			if(next->policy==SCHED_LOTTERY){
+				lottery_log(LOTTERY_CONTEXT_SWITCH, "Next PID:%d with %llu NS runtime",next->pid,next->se.sum_exec_runtime);
+			}
+		}
+
+#endif
 		sched_info_switch(prev, next);
 		perf_event_task_sched_out(prev, next, cpu);
 
@@ -6333,6 +6369,11 @@ __setscheduler(struct rq *rq, struct task_struct *p, int policy, int prio)
 	case SCHED_RR:
 		p->sched_class = &rt_sched_class;
 		break;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	case SCHED_LOTTERY:
+		p->sched_class = &lottery_sched_class;
+		break;
+#endif
 	}
 
 	p->rt_priority = prio;
@@ -6380,7 +6421,11 @@ recheck:
 
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
 				policy != SCHED_NORMAL && policy != SCHED_BATCH &&
-				policy != SCHED_IDLE)
+				policy != SCHED_IDLE 
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+				&& policy !=SCHED_LOTTERY
+#endif
+			)
 			return -EINVAL;
 	}
 
@@ -6432,7 +6477,10 @@ recheck:
 		if (p->sched_reset_on_fork && !reset_on_fork)
 			return -EPERM;
 	}
-
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	if(policy==SCHED_LOTTERY)
+		p->lt.tickets = param->tickets;
+#endif
 	if (user) {
 #ifdef CONFIG_RT_GROUP_SCHED
 		/*
@@ -9607,6 +9655,10 @@ void __init sched_init(void)
 		init_task_group.shares = init_task_group_load;
 		INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);
 #ifdef CONFIG_CGROUP_SCHED
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+		init_lottery_rq(&rq->lottery_rq);
+#endif
 		/*
 		 * How much cpu bandwidth does init_task_group get?
 		 *
@@ -9732,6 +9784,10 @@ void __init sched_init(void)
 #endif /* SMP */
 
 	perf_event_init();
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	init_lottery_event_log();
+#endif
 
 	scheduler_running = 1;
 }
