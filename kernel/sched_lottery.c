@@ -10,7 +10,7 @@
 #include <linux/rbtree_augmented.h>
 #include <linux/latencytop.h>
 
-#define LOTTERY_RQ_LIST 1
+#define LOTTERY_RQ_LIST 0
 
 struct lottery_event_log lottery_event_log;
 unsigned long long lottery_iteration = 0;
@@ -106,9 +106,6 @@ static void update_curr_lottery(struct rq* rq)
 static inline unsigned long long
 compute_subtree_left(struct sched_lottery_entity *node)
 {
-	if(unlikely(node == NULL))
-		return -1;
-
 	struct sched_lottery_entity *tmp;
 	if (likely(node->lottery_rb_node.rb_left)) {
 		tmp = rb_entry(node->lottery_rb_node.rb_left,
@@ -122,9 +119,6 @@ compute_subtree_left(struct sched_lottery_entity *node)
 static inline unsigned long long
 compute_subtree_right(struct sched_lottery_entity *node)
 {
-	if(node == NULL)
-		return -1;
-
 	struct sched_lottery_entity *tmp;
 	if (likely(node->lottery_rb_node.rb_right)) {
 		tmp = rb_entry(node->lottery_rb_node.rb_right,
@@ -137,9 +131,6 @@ compute_subtree_right(struct sched_lottery_entity *node)
 
 static void augment_propagate(struct rb_node *rb, struct rb_node *stop)
 {
-	if(unlikely(rb == NULL || stop == NULL))
-		return;
-
 	while (rb != stop) {
 		struct sched_lottery_entity *node =
 			rb_entry(rb, struct sched_lottery_entity, lottery_rb_node);
@@ -153,9 +144,6 @@ static void augment_propagate(struct rb_node *rb, struct rb_node *stop)
 
 static void augment_copy(struct rb_node *rb_old, struct rb_node *rb_new)
 {
-	if(unlikely(rb_old == NULL || rb_new == NULL))
-		return;	
-
 	struct sched_lottery_entity *old =
 		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
 	struct sched_lottery_entity *new =
@@ -166,9 +154,6 @@ static void augment_copy(struct rb_node *rb_old, struct rb_node *rb_new)
 
 static void augment_rotate(struct rb_node *rb_old, struct rb_node *rb_new)
 {
-	if(rb_old == NULL || rb_new == NULL)
-		return;
-
 	struct sched_lottery_entity *old =
 		rb_entry(rb_old, struct sched_lottery_entity, lottery_rb_node);
 	struct sched_lottery_entity *new =
@@ -187,8 +172,6 @@ static const struct rb_augment_callbacks augment_callbacks = {
 
 void remove_lottery_task_rb_tree(struct lottery_rq *rq, struct sched_lottery_entity *p)
 {
-	if(unlikely(rq == NULL)) return;
-
 	rb_erase_augmented(&p->lottery_rb_node, &rq->lottery_rb_root, &augment_callbacks);
 }
 
