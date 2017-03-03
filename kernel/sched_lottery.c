@@ -53,6 +53,7 @@ static void update_curr_lottery(struct rq* rq)
 }
 
 
+#ifdef CONFIG_SCHED_LOTTERY_LOGGING
 /**
  * @brief Registers the event to the event log
  *
@@ -88,6 +89,7 @@ static void register_lottery_event(unsigned long long t,
 		lottery_event_log.size++;
 	}
 }
+#endif
 
 
 /**
@@ -338,7 +340,6 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 static void check_preempt_curr_lottery(struct rq *rq,
 				       struct task_struct *p, int flags)
 {
-	struct sched_lottery_entity *t=NULL;
 	/* If more tickets then ask for resched */
 	if(p->lt.tickets > rq->curr->lt.tickets) {
 		lottery_log(LOTTERY_PREEMPT,

@@ -6440,6 +6440,10 @@ recheck:
 		return -EINVAL;
 	if (rt_policy(policy) != (param->sched_priority != 0))
 		return -EINVAL;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	if (param->tickets == 0)
+		return -EINVAL;
+#endif
 
 	/*
 	 * Allow unprivileged RT tasks to decrease priority:

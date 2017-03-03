@@ -100,8 +100,9 @@ static ssize_t lottery_stats_read(struct file *filp, char __user *buf,
 				  size_t count, loff_t *ppos)
 {
 	struct lottery_stats *stats;
-	unsigned long long latency_per_cycle;;
+	unsigned long long latency_per_cycle;
 	char *buffer = NULL;
+	unsigned long ret;
 
 	if(unlikely(!access_ok(VERIFY_WRITE, buf, count)))
 		return -1;
@@ -137,7 +138,10 @@ static ssize_t lottery_stats_read(struct file *filp, char __user *buf,
 			  "Preempt",
 			  stats->lottery_prempt);
 
-	copy_to_user(buf, buffer, length);
+	ret = copy_to_user(buf, buffer, length);
+
+	if (ret)
+		length = length - ret;
 
 	if (buffer)
 		kfree(buffer);
@@ -181,12 +185,13 @@ static ssize_t lottery_log_write(struct file *filp, const char __user *buf,
  *
  * @return
  */
-static ssize_t lottery_log_read(struct file *filep, const char __user *buf,
+static ssize_t lottery_log_read(struct file *filep, char __user *buf,
 				size_t count, loff_t *ppos)
 {
 	char buffer[LOTTERY_MSG_SIZE];
 	unsigned int len=0,idx=0;
 	struct lottery_event_log *log=NULL;
+	unsigned long ret;
 
 	buffer[0]='\0';
 
@@ -214,9 +219,11 @@ static ssize_t lottery_log_read(struct file *filep, const char __user *buf,
 			       log->lottery_event[idx].msg);
 		idx = (idx + 1) % LOTTERY_MAX_EVENT_LINES;
 		log->cursor=idx;
-		if(len)
-			copy_to_user(buf,buffer,len);
-
+		if(len) {
+			ret = copy_to_user(buf,buffer,len);
+			if (ret)
+				len = len - ret;
+		}
 	}
 
 	return len;
@@ -253,7 +260,7 @@ static void create_lottery_stats_entry(void)
 /**
  * @brief Creates new log fs entry
  */
-static void create_lottery_log_entry() {
+static void create_lottery_log_entry(void) {
 	proc_create("log", 0, lottery_dir, &proc_lottery_log_operations);
 }
 

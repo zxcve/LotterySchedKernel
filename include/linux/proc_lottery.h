@@ -25,7 +25,7 @@
 
 #define LOTTERY_MAX_EVENT_LINES		10000
 
-typedef enum lottery_action {
+enum lottery_action {
 	LOTTERY_ENQUEUE	= 0,
 	LOTTERY_DEQUEUE,
 	LOTTERY_CONTEXT_SWITCH,
