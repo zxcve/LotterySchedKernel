@@ -21,9 +21,6 @@
 
 #ifdef	CONFIG_SCHED_LOTTERY_POLICY
 
-/* Enables logging of events in lottery scheduling */
-#define LOTTERY_LOGGING
-
 #define LOTTERY_MSG_SIZE		400
 
 #define LOTTERY_MAX_EVENT_LINES		10000

@@ -121,11 +121,21 @@ static ssize_t lottery_stats_read(struct file *filp, char __user *buf,
 	buffer = kmalloc (MAX_LOTTERY_STATS, GFP_KERNEL);
 	if (unlikely(!buffer))
 		return 0;
-	length += snprintf(buffer, count, "PickNextTask %12llu\nLatency %12lluNS\nLatency_Per_PickNextTask %12lluNS\nEnqueue %12llu\nDequeue %12llu\nYield %12llu\nPreempt %12llu\n",
-			  stats->lottery_iteration, stats->lottery_latency,
-			  latency_per_cycle, stats->lottery_enqueue,
+	length += snprintf(buffer, count, "%21s %12llu\n%21s %12lluNS\n%21s %12lluNS\n%21s %12llu\n%21s %12llu\n%21s %12llu\n%21s %12llu\n",
+			   "PickNextTask",
+			  stats->lottery_iteration,
+			   "Latency",
+			  stats->lottery_latency,
+			  "Latency/PickNextTask",
+			  latency_per_cycle,
+			  "Enqueue",
+			  stats->lottery_enqueue,
+			  "Dequeue",
 			  stats->lottery_dequeue,
-			  stats->lottery_yield, stats->lottery_prempt);
+			  "Yield",
+			  stats->lottery_yield,
+			  "Preempt",
+			  stats->lottery_prempt);
 
 	copy_to_user(buf, buffer, length);
 

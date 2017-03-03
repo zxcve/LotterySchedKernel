@@ -21,11 +21,6 @@
 #include <linux/proc_lottery.h>
 
 /**
- * @brief 1 enables list based rq; 0 enables rb tree based rq
- */
-#define LOTTERY_RQ_LIST 0
-
-/**
  * @brief event buffer
  */
 static struct lottery_event_log lottery_event_log;
@@ -98,7 +93,7 @@ static void register_lottery_event(unsigned long long t,
 /**
  * Functions for RbTree based run queue
  */
-#if LOTTERY_RQ_LIST == 0
+#ifndef CONFIG_SCHED_LOTTERY_RQ_LIST
 
 /**
  * @brief Computes the total tickets in left subtree
@@ -269,7 +264,7 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 	unsigned long long lottery;
 	struct lottery_rq *rq = &trq->lottery_rq;
 	struct sched_lottery_entity *lottery_task=NULL;
-#if LOTTERY_RQ_LIST
+#ifdef CONFIG_SCHED_LOTTERY_RQ_LIST
 	struct list_head *ptr=NULL;
 	unsigned long long iterator = 0;
 #else
@@ -288,7 +283,7 @@ static struct sched_lottery_entity * conduct_lottery(struct rq *trq)
 		return NULL;
 	}
 
-#if LOTTERY_RQ_LIST
+#ifdef CONFIG_SCHED_LOTTERY_RQ_LIST
 	/* Iterate across the list and get cumulative sum for each node.
 	 * The winner will have cumulative sum greater than lottery_ticket.
 	 */
@@ -393,7 +388,7 @@ static void enqueue_task_lottery(struct rq *rq,
 {
 	if(likely(p)){
 		rq->lottery_rq.max_tickets += p->lt.tickets;
-#if LOTTERY_RQ_LIST
+#ifdef CONFIG_SCHED_LOTTERY_RQ_LIST
 		list_add(&p->lt.lottery_runnable_node,
 			 &rq->lottery_rq.lottery_runnable_head);
 #else
@@ -424,7 +419,7 @@ static void dequeue_task_lottery(struct rq *rq,
 			    t->tickets);
 
 		update_curr_lottery(rq);
-#if LOTTERY_RQ_LIST
+#ifdef CONFIG_SCHED_LOTTERY_RQ_LIST
 		list_del(&(t->lottery_runnable_node));
 #else
 		remove_lottery_task_rb_tree(&rq->lottery_rq, t);
@@ -676,7 +671,7 @@ struct lottery_stats *lottery_get_stats(void)
  */
 void lottery_log(enum lottery_action action, char* format, ...)
 {
-#ifdef LOTTERY_LOGGING
+#ifdef CONFIG_SCHED_LOTTERY_LOGGING
 	va_list a_list;
 	va_start(a_list, format);
 	register_lottery_event(sched_clock(), action, format, a_list);
@@ -703,7 +698,7 @@ void init_lottery_event_log(void)
  */
 void init_lottery_rq(struct lottery_rq *lottery_rq)
 {
-#if LOTTERY_RQ_LIST
+#ifdef CONFIG_SCHED_LOTTERY_RQ_LIST
 	INIT_LIST_HEAD(&lottery_rq->lottery_runnable_head);
 #else
 	lottery_rq->lottery_rb_root=RB_ROOT;

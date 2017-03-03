@@ -2079,11 +2079,21 @@ config HAVE_ATOMIC_IOMAP
 	def_bool y
 	depends on X86_32
 
-menu "LOTTERY scheduler"
+menu "Lottery scheduler"
 
 config SCHED_LOTTERY_POLICY
-	bool "LOTTERY scheduling policy"
+	bool "Lottery scheduling policy"
 	default y
+
+config SCHED_LOTTERY_RQ_LIST
+	depends on SCHED_LOTTERY_POLICY
+	bool "Use list as rq"
+	default n
+
+config SCHED_LOTTERY_LOGGING
+	depends on SCHED_LOTTERY_POLICY
+	bool "Enable logging for events"
+	default n
 endmenu
 
 source "net/Kconfig"
