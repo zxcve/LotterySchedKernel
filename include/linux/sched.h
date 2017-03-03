@@ -38,6 +38,10 @@
 #define SCHED_BATCH		3
 /* SCHED_ISO: reserved but not implemented yet */
 #define SCHED_IDLE		5
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+#define SCHED_LOTTERY		6
+#endif
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
 #define SCHED_RESET_ON_FORK     0x40000000
 
@@ -45,6 +49,10 @@
 
 struct sched_param {
 	int sched_priority;
+
+#ifdef	CONFIG_SCHED_LOTTERY_POLICY
+	unsigned long long tickets;
+#endif
 };
 
 #include <asm/param.h>	/* for HZ */
@@ -1219,9 +1227,22 @@ struct sched_rt_entity {
 #endif
 };
 
+
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+struct sched_lottery_entity {
+	struct list_head lottery_runnable_node;
+	struct rb_node lottery_rb_node;
+	unsigned long long left_tickets;
+	unsigned long long right_tickets;
+	unsigned long long tickets;
+	struct task_struct *task;
+};
+#endif
+
 struct rcu_node;
 
 struct task_struct {
+
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
@@ -1241,6 +1262,9 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
+#ifdef CONFIG_SCHED_LOTTERY_POLICY
+	struct sched_lottery_entity lt;
+#endif
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	/* list of struct preempt_notifier: */
