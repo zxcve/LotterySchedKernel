@@ -121,7 +121,7 @@ static ssize_t lottery_stats_read(struct file *filp, char __user *buf,
 	buffer = kmalloc (MAX_LOTTERY_STATS, GFP_KERNEL);
 	if (unlikely(!buffer))
 		return 0;
-	length += snprintf(buffer, count, "%21s %12llu\n%21s %12lluNS\n%21s %12lluNS\n%21s %12llu\n%21s %12llu\n%21s %12llu\n%21s %12llu\n",
+	length += snprintf(buffer, count, "%21s %12llu\n%21s %12llu NS\n%21s %12llu NS\n%21s %12llu\n%21s %12llu\n%21s %12llu\n%21s %12llu\n",
 			   "PickNextTask",
 			  stats->lottery_iteration,
 			   "Latency",
